@@ -1,41 +1,50 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 @layer base {
   :root {
-    /* Background */
-    --bg-main: #FAFAF8;
-    --bg-subtle: #F5F5F2;
-    --surface: #FFFFFF;
-    --surface-hover: #F8F9F7;
+    /* Pure Clean Minimalist Apple/Linear Palette */
+    --bg-page: #FBFBFA;
+    --bg-surface: #FFFFFF;
+    --bg-surface-elevated: #FFFFFF;
+    --bg-subtle: #F5F5F3;
+    --bg-muted: #EFEFEA;
 
-    /* Text */
-    --text-primary: #1F2937;
-    --text-secondary: #6B7280;
-    --text-muted: #9CA3AF;
+    /* Crisp Typography */
+    --text-primary: #111827;
+    --text-secondary: #4B5563;
+    --text-muted: #8E95A2;
+    --text-subtle: #B0B5C0;
 
-    /* Borders */
-    --border-subtle: #E7E7E3;
-    --border-strong: #DCDDD9;
+    /* Delicate Borders */
+    --border-hairline: #EDEDEA;
+    --border-subtle: #E3E4DF;
+    --border-strong: #D1D2CC;
 
-    /* Pastel Accents */
-    --pastel-lavender: #C9C2FF;
-    --pastel-lavender-subtle: #F3F1FF;
-    --pastel-lavender-mid: #E1DCFF;
-    --pastel-blue: #C7DBFF;
-    --pastel-blue-subtle: #EEF4FF;
-    --pastel-mint: #C8EBD8;
-    --pastel-mint-subtle: #F0FAF4;
-    --pastel-peach: #FFDCC5;
-    --pastel-peach-subtle: #FFF7F0;
-    --pastel-rose: #F5C8CF;
-    --pastel-rose-subtle: #FDF2F4;
-    --pastel-yellow: #F7E7AE;
-    --pastel-yellow-subtle: #FEFCEE;
+    /* Soft Executive Pastels */
+    --pastel-indigo: #EEF2FF;
+    --pastel-indigo-border: #DDE4FF;
+    --pastel-indigo-text: #4338CA;
 
-    /* Semantic */
-    --accent-primary: #4C3CB8;
-    --accent-primary-hover: #3D2FA3;
+    --pastel-rose: #FFF1F2;
+    --pastel-rose-border: #FEE2E2;
+    --pastel-rose-text: #BE123C;
+
+    --pastel-emerald: #ECFDF5;
+    --pastel-emerald-border: #D1FAE5;
+    --pastel-emerald-text: #047857;
+
+    --pastel-amber: #FFFBEB;
+    --pastel-amber-border: #FEF3C7;
+    --pastel-amber-text: #B45309;
+
+    --pastel-sky: #F0F9FF;
+    --pastel-sky-border: #E0F2FE;
+    --pastel-sky-text: #0369A1;
+
+    /* Accent & Brand */
+    --brand-primary: #0F172A;
+    --brand-secondary: #3B82F6;
   }
 
   * {
@@ -43,176 +52,93 @@
   }
 
   body {
-    background-color: var(--bg-main);
+    background-color: var(--bg-page);
     color: var(--text-primary);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     margin: 0;
     padding: 0;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-size: 14px;
-    line-height: 1.6;
+    font-size: 13px;
+    line-height: 1.5;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Manrope', 'Inter', -apple-system, sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
     letter-spacing: -0.025em;
-    line-height: 1.25;
     color: var(--text-primary);
+    font-weight: 700;
   }
 
-  input, textarea, select, button {
-    font-family: inherit;
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
   }
 }
 
-/* ─── Scrollbars ─── */
+/* ─── Modern Scrollbar ─── */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #DDDEDE;
+  background: #E0E1DC;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #C8C9C4;
+  background: #C4C5BE;
 }
 
-/* ─── Range Input (Video Scrubber) ─── */
+/* ─── Video Scrubber Range Styling ─── */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   height: 4px;
   border-radius: 9999px;
-  background: #E7E7E3;
+  background: #E5E7EB;
   outline: none;
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+input[type="range"]:hover {
+  height: 6px;
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
+  appearance: none;
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #1F2937;
-  border: 2px solid #FFFFFF;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  background: #111827;
+  border: 2.5px solid #FFFFFF;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   cursor: pointer;
-  transition: transform 0.1s ease;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
-}
-input[type="range"]::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #1F2937;
-  border: 2px solid #FFFFFF;
-  cursor: pointer;
+  transform: scale(1.25);
+  background: #3B82F6;
 }
 
-/* ─── Semantic Tag Utilities ─── */
-.tag-lavender {
-  background-color: #F3F1FF;
-  color: #4C3CB8;
-  border: 1px solid #E1DCFF;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 2px 8px;
-}
-.tag-mint {
-  background-color: #F0FAF4;
-  color: #1B663E;
-  border: 1px solid #C8EBD8;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 2px 8px;
-}
-.tag-peach {
-  background-color: #FFF7F0;
-  color: #9A4B10;
-  border: 1px solid #FFDCC5;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 2px 8px;
-}
-.tag-rose {
-  background-color: #FDF2F4;
-  color: #9C1F2E;
-  border: 1px solid #F5C8CF;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 2px 8px;
-}
-.tag-blue {
-  background-color: #EEF4FF;
-  color: #1E4D8C;
-  border: 1px solid #C7DBFF;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 2px 8px;
+/* ─── Custom Animations ─── */
+@keyframes pulseSubtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.01); }
 }
 
-/* ─── Animations ─── */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.97); }
-  to { opacity: 1; transform: scale(1); }
-}
-@keyframes shimmer {
-  from { background-position: -200% 0; }
-  to { background-position: 200% 0; }
-}
-@keyframes pulse-soft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+@keyframes threatAlertRing {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.25s ease forwards;
-}
-.animate-slide-up {
-  animation: slideUp 0.3s ease forwards;
-}
-.animate-scale-in {
-  animation: scaleIn 0.2s ease forwards;
-}
-.animate-pulse-soft {
-  animation: pulse-soft 2s ease-in-out infinite;
+.animate-pulse-subtle {
+  animation: pulseSubtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Skeleton loader shimmer */
-.skeleton {
-  background: linear-gradient(90deg, #F0F0EC 25%, #E8E8E4 50%, #F0F0EC 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.6s ease-in-out infinite;
-  border-radius: 8px;
-}
-
-/* ─── Processing Pipeline Steps ─── */
-.pipeline-step-done {
-  color: #1B663E;
-}
-.pipeline-step-active {
-  color: #4C3CB8;
-}
-.pipeline-step-pending {
-  color: #9CA3AF;
+.animate-threat-alert {
+  animation: threatAlertRing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }

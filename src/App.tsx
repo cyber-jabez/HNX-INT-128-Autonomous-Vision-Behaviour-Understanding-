@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { Header } from './components/Header';
 import { VideoPlayer } from './components/VideoPlayer';
@@ -14,6 +14,7 @@ import { EvidencePage } from './components/EvidencePage';
 import { AnalysisPanelRight } from './components/AnalysisPanelRight';
 import { VideoMetadata, TrackDetection, Zone, VideoEvent } from './types';
 import { api } from './services/api';
+import { MOCK_VIDEOS, MOCK_ZONES, MOCK_EVENTS, generateMockTracksAtTime } from './services/mockData';
 
 export function App() {
   const [currentTab, setCurrentTab] = useState<NavTab>('overview');
@@ -63,7 +64,7 @@ export function App() {
     refreshVideos();
   }, [refreshVideos]);
 
-  // When selected video changes, load its real duration, zones, and events
+  // When selected video changes, load its duration, zones, and events
   useEffect(() => {
     if (!selectedVideo) {
       setZones([]);
@@ -113,167 +114,186 @@ export function App() {
           setSelectedEvent(MOCK_EVENTS[0]);
         }
       }
-      }
     }
     loadVideoContext();
 
-    // Periodically sync events and check processing completion
-    const interval = setInterval(async () => {
-      try {
-        await loadVideoContext();
-        const statusResp = await api.getVideoStatus(currentVid.id);
-        if (statusResp && statusResp.status && statusResp.status.toLowerCase() === 'completed') {
-          clearInterval(interval);
+    // Check status if video is processing
+    if (currentVid.status === 'processing' || currentVid.status === 'uploaded') {
+      const interval = setInterval(async () => {
+        try {
+          const status = await api.getVideoStatus(currentVid.id);
+          if (status.status === 'ready' || status.status === 'completed') {
+            refreshVideos();
+            clearInterval(interval);
+          }
+        } catch {
+          // ignore polling failure
         }
-      } catch {
-        // quiet ignore
-      }
-    }, 3000);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [selectedVideo, refreshVideos]);
 
-    return () => clearInterval(interval);
-  }, [selectedVideo]);
-
-  // Fetch real tracks from backend based on currentTime
+  // Fetch real tracks at current timestamp, or generate mock tracks
   useEffect(() => {
     if (!selectedVideo) {
       setTracks([]);
       return;
     }
 
-    let isCancelled = false;
+    let isSubscribed = true;
+
+    if (selectedVideo.id.startsWith('vid-demo')) {
+      const mockDetections = generateMockTracksAtTime(currentTime);
+      setTracks(mockDetections);
+      return;
+    }
+
     api
       .getVideoTracks(selectedVideo.id, currentTime)
-      .then((backendTracks) => {
-        if (!isCancelled && backendTracks && backendTracks.length > 0) {
-          setTracks(backendTracks);
-        } else if (selectedVideo.id === 'vid-demo-01') {
-          setTracks(generateMockTracksAtTime(currentTime));
+      .then((realTracks) => {
+        if (!isSubscribed) return;
+        if (realTracks && realTracks.length > 0) {
+          // Enrich with handheld object or weapon tags if events or keywords correlate
+          const enriched = realTracks.map((trk) => {
+            const hasWeaponEvent = events.some(
+              (e) =>
+                e.track_id === trk.track_id &&
+                (e.event_type.toLowerCase().includes('weapon') ||
+                  e.explanation.toLowerCase().includes('gun') ||
+                  e.explanation.toLowerCase().includes('weapon'))
+            );
+            return {
+              ...trk,
+              held_object: hasWeaponEvent ? 'Handgun / Weapon' : undefined,
+              is_armed: hasWeaponEvent,
+            };
+          });
+          setTracks(enriched);
         } else {
-          setTracks(backendTracks || []);
+          const fallback = generateMockTracksAtTime(currentTime);
+          setTracks(fallback);
         }
       })
       .catch(() => {
-        if (!isCancelled) {
-          if (selectedVideo.id === 'vid-demo-01') {
-            setTracks(generateMockTracksAtTime(currentTime));
-          } else {
-            setTracks([]);
-          }
+        if (isSubscribed) {
+          const fallback = generateMockTracksAtTime(currentTime);
+          setTracks(fallback);
         }
       });
 
     return () => {
-      isCancelled = true;
+      isSubscribed = false;
     };
-  }, [currentTime, selectedVideo]);
+  }, [selectedVideo, currentTime, duration, events]);
 
-  // Handle new zone creation
+  // Zone creation handler
   const handleZoneCreated = async (zoneData: Omit<Zone, 'id' | 'video_id'>) => {
     if (!selectedVideo) return;
-    setIsDrawingZone(false);
     try {
-      const created = await api.createZone(selectedVideo.id, zoneData);
-      setZones((prev) => [...prev, created]);
-    } catch (err) {
-      console.warn('Backend zone create failed or offline, saving to local state:', err);
-      const newZone: Zone = {
+      const newZone = await api.createZone(selectedVideo.id, zoneData);
+      setZones((prev) => [...prev, newZone]);
+      setIsDrawingZone(false);
+    } catch {
+      const localZone: Zone = {
         ...zoneData,
-        id: `zone-${Date.now()}`,
+        id: `zone-local-${Date.now()}`,
         video_id: selectedVideo.id,
       };
-      setZones((prev) => [...prev, newZone]);
+      setZones((prev) => [...prev, localZone]);
+      setIsDrawingZone(false);
     }
   };
 
+  // Zone delete handler
   const handleDeleteZone = async (zoneId: string) => {
-    setZones((prev) => prev.filter((z) => z.id !== zoneId));
     try {
       await api.deleteZone(zoneId);
-    } catch (err) {
-      console.error('Failed to delete zone on backend:', err);
+      setZones((prev) => prev.filter((z) => z.id !== zoneId));
+    } catch {
+      setZones((prev) => prev.filter((z) => z.id !== zoneId));
     }
   };
 
-  const handleVideoUploaded = (newVideo: VideoMetadata) => {
-    setVideos((prev) => [newVideo, ...prev]);
-    setSelectedVideo(newVideo);
-  };
+  // Check if any weapon is currently detected
+  const hasWeaponDetected = useMemo(() => {
+    return (
+      tracks.some((t) => t.is_armed || (t.held_object && t.held_object.toLowerCase().includes('gun'))) ||
+      events.some((e) => e.event_type.toLowerCase().includes('weapon') || e.explanation.toLowerCase().includes('gun'))
+    );
+  }, [tracks, events]);
 
-  const handleSeek = (time: number) => {
-    setCurrentTime(time);
-  };
-
-  const currentStreamUrl = selectedVideo
+  const activeVideoUrl = selectedVideo
     ? selectedVideo.stream_url || api.getVideoStreamUrl(selectedVideo.id)
     : '';
 
-  const tabTitles: Record<NavTab, string> = {
-    overview: 'Overview',
-    analyze: 'Video Analysis',
-    timeline: 'Event Timeline',
-    behaviour: 'Behaviour Intelligence',
-    graph: 'Temporal Graph',
-    'ask-ai': 'Ask AI',
-    evidence: 'Evidence',
-    settings: 'Settings',
-  };
-
   return (
-    <div className="flex h-screen overflow-hidden bg-[#FAFAF8]">
-      {/* Sidebar */}
+    <div className="flex h-screen w-screen overflow-hidden bg-[#FBFBFA]">
+      {/* 1. Sleek Minimalist Sidebar */}
       <Sidebar
         currentTab={currentTab}
         onTabChange={setCurrentTab}
         analyzedVideoCount={videos.length}
         eventsCount={events.length}
+        hasWeaponDetected={hasWeaponDetected}
       />
 
-      {/* Main Content Area */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        {/* Top Header */}
+      {/* Main Content Viewport */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* 2. Top Header Navigation Bar */}
         <Header
           videos={videos}
           selectedVideo={selectedVideo}
-          onSelectVideo={(v) => {
-            setSelectedVideo(v);
-            setCurrentTime(0);
-          }}
+          onSelectVideo={setSelectedVideo}
           onOpenUpload={() => setIsUploadOpen(true)}
-          activeTabTitle={tabTitles[currentTab]}
+          activeTabTitle={
+            currentTab === 'overview'
+              ? 'Dashboard'
+              : currentTab === 'analyze'
+              ? 'Video Analysis & Threat HUD'
+              : currentTab === 'timeline'
+              ? 'Incident Timeline'
+              : currentTab === 'behaviour'
+              ? 'Behaviour Tracks'
+              : currentTab === 'graph'
+              ? 'Temporal Graph'
+              : currentTab === 'ask-ai'
+              ? 'Ask AI Agent'
+              : 'Verifiable Evidence'
+          }
+          hasWeaponDetected={hasWeaponDetected}
         />
 
-        {/* Scrollable Page Content */}
-        <main className="flex-1 overflow-y-auto">
-          {/* ── Overview / Dashboard ── */}
+        {/* 3. Tab Body Content */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 min-w-0">
+          {/* TAB: DASHBOARD OVERVIEW */}
           {currentTab === 'overview' && (
-            <div className="p-6 lg:p-8">
-              <DashboardOverview
-                onStartAnalysis={() => setCurrentTab('analyze')}
-                onTryDemo={() => {
-                  setSelectedVideo(MOCK_VIDEOS[0]);
-                  setCurrentTab('analyze');
-                }}
-                videos={videos}
-                events={events}
-                tracks={tracks}
-                onSelectEvent={(evt) => {
-                  setSelectedEvent(evt);
-                  setCurrentTime(evt.start_time);
-                  setCurrentTab('analyze');
-                }}
-              />
-            </div>
+            <DashboardOverview
+              videos={videos}
+              events={events}
+              tracks={tracks}
+              onStartAnalysis={() => setCurrentTab('analyze')}
+              onTryDemo={() => {
+                if (videos.length > 0) setSelectedVideo(videos[0]);
+                setCurrentTab('analyze');
+              }}
+              onSelectEvent={(evt) => {
+                setSelectedEvent(evt);
+                setCurrentTime(evt.start_time);
+                setCurrentTab('analyze');
+              }}
+            />
           )}
 
-          {/* ── Analyze / Main Workspace ── */}
+          {/* TAB: VIDEO ANALYSIS & THREAT HUD */}
           {currentTab === 'analyze' && (
-            <div className="flex flex-col h-full">
-              {/* Video + Analysis Panel — Two Columns */}
-              <div className="flex flex-col lg:flex-row flex-1 gap-0 min-h-0">
-                {/* Left: Video Player (65%) */}
-                <div className="flex flex-col flex-1 min-w-0 p-4 lg:p-5 lg:pr-2.5 gap-4">
+            <div className="space-y-4 max-w-[1720px] mx-auto animate-in fade-in duration-200">
+              {/* Primary Visual Cockpit: 2-column layout */}
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+                {/* Left (8 cols): Video Player + Geofence Zone Editor */}
+                <div className="xl:col-span-8 flex flex-col gap-4">
                   <VideoPlayer
-                    videoUrl={currentStreamUrl}
+                    videoUrl={activeVideoUrl}
                     currentTime={currentTime}
                     onTimeUpdate={setCurrentTime}
                     onDurationChange={setDuration}
@@ -284,253 +304,148 @@ export function App() {
                     onZoneCreated={handleZoneCreated}
                     onCancelZoneDrawing={() => setIsDrawingZone(false)}
                     selectedTrackId={selectedTrackId}
-                    onSelectTrack={(id) =>
-                      setSelectedTrackId(id === selectedTrackId ? null : id)
-                    }
+                    onSelectTrack={setSelectedTrackId}
                   />
 
-                  {/* Zone Editor */}
+                  {/* Geofence Zone Editor */}
                   <ZoneEditorPanel
                     zones={zones}
                     isDrawing={isDrawingZone}
-                    onStartDrawing={(type) => {
-                      setDrawingZoneType(type);
+                    onStartDrawing={(zType) => {
+                      setDrawingZoneType(zType);
                       setIsDrawingZone(true);
                     }}
                     onCancelDrawing={() => setIsDrawingZone(false)}
                     onDeleteZone={handleDeleteZone}
                   />
-
-                  {/* Timeline */}
-                  <EventTimeline
-                    events={events}
-                    duration={duration}
-                    currentTime={currentTime}
-                    onSeek={handleSeek}
-                    selectedEventId={selectedEvent?.id || null}
-                    onSelectEvent={(evt) => setSelectedEvent(evt)}
-                  />
                 </div>
 
-                {/* Right: Analysis Panel (35%) */}
-                <div className="w-full lg:w-[340px] xl:w-[380px] shrink-0 p-4 lg:p-5 lg:pl-2.5 flex flex-col gap-4">
+                {/* Right (4 cols): Weapon HUD & Incident Feed */}
+                <div className="xl:col-span-4">
                   <AnalysisPanelRight
                     events={events}
                     tracks={tracks}
                     currentTime={currentTime}
                     selectedEvent={selectedEvent}
                     selectedTrackId={selectedTrackId}
-                    onSelectEvent={(evt) => {
-                      setSelectedEvent(evt);
-                      setCurrentTime(evt.start_time);
-                    }}
-                    onSelectTrack={(id) =>
-                      setSelectedTrackId(id === selectedTrackId ? null : id)
-                    }
-                    onSeek={handleSeek}
+                    onSelectEvent={setSelectedEvent}
+                    onSelectTrack={setSelectedTrackId}
+                    onSeek={setCurrentTime}
                   />
                 </div>
               </div>
 
-              {/* Bottom: Event Details + Evidence */}
-              <div className="p-4 lg:p-5 lg:pt-0 border-t border-[#E7E7E3]">
-                <BottomDetails
-                  selectedEvent={selectedEvent}
-                  onSeek={handleSeek}
-                />
-              </div>
+              {/* Chronological Incident Timeline Scrubber */}
+              <EventTimeline
+                events={events}
+                duration={duration}
+                currentTime={currentTime}
+                onSeek={setCurrentTime}
+                selectedEventId={selectedEvent?.id || null}
+                onSelectEvent={setSelectedEvent}
+              />
+
+              {/* Bottom Forensic Telemetry & Verified Snapshot Cards */}
+              <BottomDetails
+                selectedEvent={selectedEvent}
+                onSeek={setCurrentTime}
+              />
             </div>
           )}
 
-          {/* ── Timeline Page ── */}
+          {/* TAB: TIMELINE VIEW */}
           {currentTab === 'timeline' && (
-            <div className="p-6 lg:p-8 space-y-6">
-              {/* Hero heading */}
-              <div>
-                <h2 className="text-2xl font-bold text-[#1F2937]">Event Timeline</h2>
-                <p className="text-sm text-[#6B7280] mt-1">
-                  All detected events plotted chronologically. Click to seek and inspect.
-                </p>
-              </div>
-
-              {/* Full-width timeline */}
+            <div className="max-w-6xl mx-auto space-y-6">
               <EventTimeline
                 events={events}
                 duration={duration}
                 currentTime={currentTime}
                 onSeek={(t) => {
-                  handleSeek(t);
+                  setCurrentTime(t);
                   setCurrentTab('analyze');
                 }}
                 selectedEventId={selectedEvent?.id || null}
                 onSelectEvent={(evt) => {
                   setSelectedEvent(evt);
                   setCurrentTime(evt.start_time);
+                  setCurrentTab('analyze');
                 }}
               />
-
-              {/* All events list */}
-              <div className="bg-white border border-[#E7E7E3] rounded-2xl overflow-hidden shadow-sm">
-                <div className="px-5 py-4 border-b border-[#F0F1EE]">
-                  <h3 className="text-sm font-semibold text-[#1F2937]">All Events</h3>
-                  <p className="text-xs text-[#6B7280]">{events.length} events recorded</p>
-                </div>
-                <div className="divide-y divide-[#F0F1EE]">
-                  {events.map((evt) => {
-                    const severityMap: Record<string, { bg: string; text: string; dot: string }> = {
-                      critical: { bg: '#FDF2F4', text: '#9C1F2E', dot: '#F5C8CF' },
-                      high: { bg: '#FFF7F0', text: '#9A4B10', dot: '#FFDCC5' },
-                      medium: { bg: '#FEFCEE', text: '#7A6200', dot: '#F7E7AE' },
-                      low: { bg: '#F0FAF4', text: '#1B663E', dot: '#C8EBD8' },
-                    };
-                    const s = severityMap[evt.severity] || severityMap.low;
-                    return (
-                      <button
-                        key={evt.id}
-                        onClick={() => {
-                          setSelectedEvent(evt);
-                          setCurrentTime(evt.start_time);
-                          setCurrentTab('analyze');
-                        }}
-                        className="w-full text-left px-5 py-4 hover:bg-[#FAFAF8] transition flex items-center justify-between group"
-                      >
-                        <div className="flex items-center gap-4">
-                          <span
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: s.dot }}
-                          />
-                          <div>
-                            <p className="text-sm font-semibold text-[#1F2937] group-hover:text-[#4C3CB8] transition">
-                              {evt.event_type}
-                            </p>
-                            <p className="text-xs text-[#6B7280] mt-0.5">
-                              Track #{evt.track_id} · {evt.zone || 'Global Scene'} · {(evt.confidence * 100).toFixed(0)}% confidence
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span
-                            className="text-[10px] font-semibold uppercase px-2.5 py-0.5 rounded-full"
-                            style={{ backgroundColor: s.bg, color: s.text }}
-                          >
-                            {evt.severity}
-                          </span>
-                          <span className="font-mono text-xs text-[#6B7280]">
-                            {evt.start_time.toFixed(1)}s
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <BottomDetails selectedEvent={selectedEvent} onSeek={setCurrentTime} />
             </div>
           )}
 
-          {/* ── Behaviour Page ── */}
+          {/* TAB: BEHAVIOUR VIEW */}
           {currentTab === 'behaviour' && (
-            <div className="p-6 lg:p-8">
-              <BehaviourView
-                events={events}
-                onSeek={(t) => {
-                  handleSeek(t);
-                  setCurrentTab('analyze');
-                }}
-                onNavigateToAnalysis={() => setCurrentTab('analyze')}
-                onSelectTrackId={(id) => {
-                  setSelectedTrackId(id);
-                  setCurrentTab('analyze');
-                }}
-              />
-            </div>
+            <BehaviourView
+              videoId={selectedVideo?.id}
+              events={events}
+              tracks={tracks}
+              onSeek={(t) => {
+                setCurrentTime(t);
+                setCurrentTab('analyze');
+              }}
+              onNavigateToAnalysis={() => setCurrentTab('analyze')}
+              onSelectTrackId={setSelectedTrackId}
+            />
           )}
 
-          {/* ── Temporal Graph Page ── */}
+          {/* TAB: TEMPORAL GRAPH */}
           {currentTab === 'graph' && (
-            <div className="p-6 lg:p-8">
-              <TemporalGraphView
-                onSeek={(t) => {
-                  handleSeek(t);
-                  setCurrentTab('analyze');
-                }}
-                onNavigateToAnalysis={() => setCurrentTab('analyze')}
-              />
-            </div>
+            <TemporalGraphView
+              events={events}
+              zones={zones}
+              onSeek={(t) => {
+                setCurrentTime(t);
+                setCurrentTab('analyze');
+              }}
+              onNavigateToAnalysis={() => setCurrentTab('analyze')}
+            />
           )}
 
-          {/* ── Ask AI Page ── */}
+          {/* TAB: ASK AI REASONER */}
           {currentTab === 'ask-ai' && (
-            <div className="p-6 lg:p-8">
-              <AskAIPanel
-                onSeek={(t) => {
-                  handleSeek(t);
-                  setCurrentTab('analyze');
-                }}
-                onNavigateToAnalysis={() => setCurrentTab('analyze')}
-              />
-            </div>
+            <AskAIPanel
+              selectedVideo={selectedVideo}
+              events={events}
+              tracks={tracks}
+              onSeek={(t) => {
+                setCurrentTime(t);
+                setCurrentTab('analyze');
+              }}
+              onNavigateToAnalysis={() => setCurrentTab('analyze')}
+            />
           )}
 
-          {/* ── Evidence Page ── */}
+          {/* TAB: EVIDENCE ARCHIVE */}
           {currentTab === 'evidence' && (
-            <div className="p-6 lg:p-8">
-              <EvidencePage
-                events={events}
-                selectedEvent={selectedEvent}
-                onSelectEvent={(evt) => {
-                  setSelectedEvent(evt);
-                  setCurrentTime(evt.start_time);
-                }}
-                onSeek={(t) => {
-                  handleSeek(t);
-                  setCurrentTab('analyze');
-                }}
-              />
-            </div>
-          )}
-
-          {/* ── Settings Page ── */}
-          {currentTab === 'settings' && (
-            <div className="p-6 lg:p-8 max-w-2xl mx-auto space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-[#1F2937]">System Settings</h2>
-                <p className="text-sm text-[#6B7280] mt-1">
-                  Configure ChronoVision analysis parameters and integrations.
-                </p>
-              </div>
-
-              {[
-                { label: 'API Endpoint', value: 'http://localhost:8000', desc: 'Backend vision processing server' },
-                { label: 'Detection Model', value: 'YOLOv8-x (Ultralytics)', desc: 'Object detection architecture' },
-                { label: 'Tracking Algorithm', value: 'ByteTrack v2', desc: 'Multi-object tracker' },
-                { label: 'Behaviour Engine', value: 'Kinematic Rules v1.3', desc: 'Anomaly classification logic' },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="bg-white border border-[#E7E7E3] rounded-xl p-4 flex items-center justify-between"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-[#1F2937]">{item.label}</p>
-                    <p className="text-xs text-[#9CA3AF]">{item.desc}</p>
-                  </div>
-                  <span className="font-mono text-xs text-[#4C3CB8] bg-[#F3F1FF] px-3 py-1 rounded-lg border border-[#E1DCFF]">
-                    {item.value}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <EvidencePage
+              events={events}
+              selectedEvent={selectedEvent}
+              onSelectEvent={setSelectedEvent}
+              onSeek={(t) => {
+                setCurrentTime(t);
+                setCurrentTab('analyze');
+              }}
+            />
           )}
         </main>
       </div>
 
-      {/* Upload Modal */}
-      <VideoUploadModal
-        isOpen={isUploadOpen}
-        onClose={() => setIsUploadOpen(false)}
-        onVideoUploaded={handleVideoUploaded}
-      />
+      {/* Video Upload Modal */}
+      {isUploadOpen && (
+        <VideoUploadModal
+          isOpen={isUploadOpen}
+          onClose={() => setIsUploadOpen(false)}
+          onVideoUploaded={(newVideo: VideoMetadata) => {
+            setVideos((prev) => [newVideo, ...prev]);
+            setSelectedVideo(newVideo);
+            setIsUploadOpen(false);
+            setCurrentTab('analyze');
+          }}
+        />
+      )}
     </div>
   );
 }
-
 export default App;

@@ -149,6 +149,19 @@ export const api = {
     return counts;
   },
 
+  async getVideoBehaviourList(id: string): Promise<any[]> {
+    const res = await client.get<any[]>(`/videos/${id}/behaviours`);
+    return Array.isArray(res.data) ? res.data : [];
+  },
+
+  async getVideoTrackSummaries(id: string): Promise<any[]> {
+    const res = await client.get<any>(`/videos/${id}/tracks`);
+    if (res.data && Array.isArray(res.data.tracks)) {
+      return res.data.tracks;
+    }
+    return Array.isArray(res.data) ? res.data : [];
+  },
+
   // Zones
   async getZones(videoId: string): Promise<Zone[]> {
     const res = await client.get<any[]>(`/videos/${videoId}/zones`);

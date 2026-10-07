@@ -17,7 +17,11 @@ export interface TrackDetection {
   behaviour: BehaviourType;
   speed?: number; // m/s or px/s
   zone?: string;
+  held_object?: string; // e.g. 'Handgun / Pistol', 'Weapon / Firearm', 'Cell Phone', 'Object in Hand'
+  held_object_confidence?: number;
+  is_armed?: boolean;
 }
+
 
 export interface VideoMetadata {
   id: string;
