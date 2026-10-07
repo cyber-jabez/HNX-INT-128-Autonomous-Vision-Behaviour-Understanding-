@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, AlertTriangle, ShieldCheck, Zap } from 'lucide-react';
+import { Clock, AlertTriangle } from 'lucide-react';
 import { VideoEvent, AlertSeverity } from '../types';
 
 interface EventTimelineProps {
@@ -10,6 +10,40 @@ interface EventTimelineProps {
   selectedEventId: string | null;
   onSelectEvent: (event: VideoEvent) => void;
 }
+
+const getSeverityColor = (sev: AlertSeverity) => {
+  switch (sev) {
+    case 'critical': return '#F5C8CF';
+    case 'high': return '#FFDCC5';
+    case 'medium': return '#F7E7AE';
+    default: return '#C7DBFF';
+  }
+};
+
+const getSeverityDark = (sev: AlertSeverity) => {
+  switch (sev) {
+    case 'critical': return '#9C1F2E';
+    case 'high': return '#9A4B10';
+    case 'medium': return '#7A6200';
+    default: return '#1E4D8C';
+  }
+};
+
+const getSeverityBg = (sev: AlertSeverity) => {
+  switch (sev) {
+    case 'critical': return '#FDF2F4';
+    case 'high': return '#FFF7F0';
+    case 'medium': return '#FEFCEE';
+    default: return '#EEF4FF';
+  }
+};
+
+const formatTime = (s: number) => {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  const ms = Math.floor((s % 1) * 10);
+  return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}.${ms}`;
+};
 
 export const EventTimeline: React.FC<EventTimelineProps> = ({
   events,
@@ -22,79 +56,69 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
   const effectiveDuration = duration > 0 ? duration : 60;
   const currentPercentage = Math.min(100, (currentTime / effectiveDuration) * 100);
 
-  const getSeverityColor = (sev: AlertSeverity) => {
-    switch (sev) {
-      case 'critical':
-        return '#f43f5e'; // rose-500
-      case 'high':
-        return '#f59e0b'; // amber-500
-      case 'medium':
-        return '#eab308'; // yellow-500
-      default:
-        return '#3b82f6'; // blue-500
-    }
-  };
+  // Timestamp labels
+  const labels = [0, 0.25, 0.5, 0.75, 1].map((f) => ({
+    pct: f * 100,
+    label: formatTime(f * effectiveDuration),
+  }));
 
   return (
-    <div className="bg-[#111726] border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col space-y-3">
+    <div className="bg-white border border-[#E7E7E3] rounded-2xl p-4 shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
-        <div className="flex items-center space-x-2">
-          <div className="p-1.5 bg-indigo-500/10 text-indigo-400 rounded-lg">
-            <Clock className="w-4 h-4" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-white">Event Timeline</h3>
-            <p className="text-[11px] text-slate-400">
-              Chronological interactive events. Click bar or event badge to seek video timestamp.
-            </p>
-          </div>
+      <div className="flex items-center justify-between pb-3 border-b border-[#F0F1EE] mb-4">
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-[#6B7280]" />
+          <span className="text-xs font-semibold text-[#1F2937]">Event Timeline</span>
+          <span className="text-[11px] text-[#9CA3AF]">· click to seek</span>
         </div>
-
         {/* Legend */}
-        <div className="flex items-center space-x-3 text-[11px] text-slate-400">
-          <span className="flex items-center space-x-1">
-            <span className="w-2 h-2 rounded-full bg-rose-500" />
-            <span>Critical</span>
-          </span>
-          <span className="flex items-center space-x-1">
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
-            <span>High</span>
-          </span>
-          <span className="flex items-center space-x-1">
-            <span className="w-2 h-2 rounded-full bg-yellow-500" />
-            <span>Medium</span>
-          </span>
-          <span className="flex items-center space-x-1">
-            <span className="w-2 h-2 rounded-full bg-blue-500" />
-            <span>Low</span>
-          </span>
+        <div className="hidden sm:flex items-center gap-3 text-[11px] text-[#6B7280]">
+          {[
+            { label: 'Critical', color: '#F5C8CF' },
+            { label: 'High', color: '#FFDCC5' },
+            { label: 'Medium', color: '#F7E7AE' },
+            { label: 'Normal', color: '#C7DBFF' },
+          ].map((item) => (
+            <span key={item.label} className="flex items-center gap-1">
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: item.color }}
+              />
+              {item.label}
+            </span>
+          ))}
         </div>
       </div>
 
-      {/* Visual Timeline Track Bar */}
+      {/* Scrub Bar */}
       <div
         onClick={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
-          const clickFraction = (e.clientX - rect.left) / rect.width;
-          onSeek(clickFraction * effectiveDuration);
+          const frac = (e.clientX - rect.left) / rect.width;
+          onSeek(frac * effectiveDuration);
         }}
-        className="relative h-10 bg-slate-900/90 rounded-lg border border-slate-800 cursor-pointer overflow-hidden group select-none"
+        className="relative h-10 bg-[#F5F5F2] rounded-xl border border-[#E7E7E3] cursor-pointer overflow-hidden mb-2"
       >
-        {/* Playhead indicator */}
+        {/* Progress fill */}
         <div
-          className="absolute top-0 bottom-0 w-0.5 bg-cyan-400 z-20 pointer-events-none transition-all duration-75 shadow-[0_0_8px_#22d3ee]"
+          className="absolute top-0 left-0 h-full bg-[#F3F1FF] pointer-events-none transition-all duration-75"
+          style={{ width: `${currentPercentage}%` }}
+        />
+
+        {/* Playhead */}
+        <div
+          className="absolute top-0 bottom-0 z-20 pointer-events-none"
           style={{ left: `${currentPercentage}%` }}
         >
-          <div className="w-2.5 h-2.5 bg-cyan-400 rounded-full -ml-1 -mt-0.5" />
+          <div className="w-0.5 h-full bg-[#4C3CB8]" />
+          <div className="w-3 h-3 bg-[#4C3CB8] rounded-full -ml-1.5 -mt-0.5 shadow-sm" />
         </div>
 
-        {/* Event Intervals plotted on bar */}
+        {/* Event segments */}
         {events.map((evt) => {
           const leftPct = (evt.start_time / effectiveDuration) * 100;
           const widthPct = Math.max(1.5, ((evt.end_time - evt.start_time) / effectiveDuration) * 100);
           const isSelected = selectedEventId === evt.id;
-
           return (
             <div
               key={evt.id}
@@ -103,9 +127,9 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
                 onSeek(evt.start_time);
                 onSelectEvent(evt);
               }}
-              title={`${evt.event_type} (${evt.start_time}s - ${evt.end_time}s)`}
-              className={`absolute top-1 bottom-1 rounded transition-all hover:brightness-125 ${
-                isSelected ? 'ring-2 ring-white scale-y-105 z-10' : 'opacity-85'
+              title={`${evt.event_type} (${evt.start_time.toFixed(1)}s–${evt.end_time.toFixed(1)}s)`}
+              className={`absolute top-2 bottom-2 rounded-md transition-all cursor-pointer ${
+                isSelected ? 'ring-2 ring-[#4C3CB8] ring-offset-1 z-10' : 'opacity-80 hover:opacity-100'
               }`}
               style={{
                 left: `${leftPct}%`,
@@ -117,12 +141,24 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
         })}
       </div>
 
-      {/* Horizontal Scrollable Event Cards */}
-      <div className="flex items-center space-x-3 overflow-x-auto pb-1 pt-1">
+      {/* Time labels */}
+      <div className="relative h-4 mb-3">
+        {labels.map((l) => (
+          <span
+            key={l.pct}
+            className="absolute font-mono text-[10px] text-[#9CA3AF] transform -translate-x-1/2"
+            style={{ left: `${l.pct}%` }}
+          >
+            {l.label}
+          </span>
+        ))}
+      </div>
+
+      {/* Scrollable Event Chips */}
+      <div className="flex items-center gap-2.5 overflow-x-auto pb-1">
         {events.map((evt) => {
           const isSelected = selectedEventId === evt.id;
           const isCurrent = currentTime >= evt.start_time && currentTime <= evt.end_time;
-
           return (
             <button
               key={evt.id}
@@ -130,29 +166,26 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
                 onSeek(evt.start_time);
                 onSelectEvent(evt);
               }}
-              className={`flex-shrink-0 text-left p-3 rounded-xl border transition-all duration-150 min-w-[210px] ${
+              className={`flex-shrink-0 text-left px-3 py-2.5 rounded-xl border transition-all duration-150 min-w-[180px] ${
                 isSelected
-                  ? 'bg-indigo-600/25 border-indigo-400 shadow-md shadow-indigo-500/20'
+                  ? 'bg-[#F3F1FF] border-[#C9C2FF] shadow-sm'
                   : isCurrent
-                  ? 'bg-slate-800/90 border-cyan-500/50'
-                  : 'bg-slate-900/60 border-slate-800 hover:bg-slate-800/60 hover:border-slate-700'
+                  ? 'bg-[#F0FAF4] border-[#C8EBD8]'
+                  : 'bg-[#FAFAF8] border-[#E7E7E3] hover:border-[#DCDDD9] hover:bg-white'
               }`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-white truncate max-w-[130px]">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-[#1F2937] truncate max-w-[120px]">
                   {evt.event_type}
                 </span>
                 <span
-                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  className="w-2 h-2 rounded-full shrink-0"
                   style={{ backgroundColor: getSeverityColor(evt.severity) }}
                 />
               </div>
-
-              <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-400">
-                <span>Track #{evt.track_id}</span>
-                <span className="font-mono text-slate-300">
-                  {evt.start_time.toFixed(1)}s - {evt.end_time.toFixed(1)}s
-                </span>
+              <div className="mt-1 flex items-center justify-between text-[10px] text-[#6B7280]">
+                <span>#{evt.track_id}</span>
+                <span className="font-mono">{formatTime(evt.start_time)}</span>
               </div>
             </button>
           );

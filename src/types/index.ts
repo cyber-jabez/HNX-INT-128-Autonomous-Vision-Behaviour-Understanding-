@@ -76,3 +76,49 @@ export interface TrackHistory {
   end_time: number;
   history: TrackHistoryPoint[];
 }
+
+export interface AIQuestionAnswer {
+  id: string;
+  question: string;
+  answer: string;
+  sequence: {
+    time: string;
+    seconds: number;
+    description: string;
+  }[];
+  evidenceTimestamps: {
+    time: string;
+    seconds: number;
+    label: string;
+    frameNumber?: number;
+  }[];
+}
+
+export interface TemporalGraphNode {
+  id: string;
+  label: string;
+  category: 'entity' | 'action' | 'zone' | 'object' | 'state';
+  timestamp?: number;
+  description?: string;
+  details?: Record<string, string | number>;
+}
+
+export interface TemporalGraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  relationship: 'BEFORE' | 'AFTER' | 'DURING' | 'INTERACTS_WITH' | 'ENTERS' | 'EXITS';
+  label?: string;
+}
+
+export interface EntitySummary {
+  track_id: number;
+  class_name: string;
+  first_seen: number;
+  last_seen: number;
+  duration: number;
+  primary_behaviour: BehaviourType;
+  confidence: number;
+  event_count: number;
+  zone: string;
+}

@@ -1,34 +1,218 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @layer base {
   :root {
-    --bg-dark: #0a0d14;
-    --card-dark: #111726;
-    --border-dark: #1e293b;
+    /* Background */
+    --bg-main: #FAFAF8;
+    --bg-subtle: #F5F5F2;
+    --surface: #FFFFFF;
+    --surface-hover: #F8F9F7;
+
+    /* Text */
+    --text-primary: #1F2937;
+    --text-secondary: #6B7280;
+    --text-muted: #9CA3AF;
+
+    /* Borders */
+    --border-subtle: #E7E7E3;
+    --border-strong: #DCDDD9;
+
+    /* Pastel Accents */
+    --pastel-lavender: #C9C2FF;
+    --pastel-lavender-subtle: #F3F1FF;
+    --pastel-lavender-mid: #E1DCFF;
+    --pastel-blue: #C7DBFF;
+    --pastel-blue-subtle: #EEF4FF;
+    --pastel-mint: #C8EBD8;
+    --pastel-mint-subtle: #F0FAF4;
+    --pastel-peach: #FFDCC5;
+    --pastel-peach-subtle: #FFF7F0;
+    --pastel-rose: #F5C8CF;
+    --pastel-rose-subtle: #FDF2F4;
+    --pastel-yellow: #F7E7AE;
+    --pastel-yellow-subtle: #FEFCEE;
+
+    /* Semantic */
+    --accent-primary: #4C3CB8;
+    --accent-primary-hover: #3D2FA3;
+  }
+
+  * {
+    box-sizing: border-box;
   }
 
   body {
-    background-color: #090d16;
-    color: #e2e8f0;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     margin: 0;
     padding: 0;
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Manrope', 'Inter', -apple-system, sans-serif;
+    letter-spacing: -0.025em;
+    line-height: 1.25;
+    color: var(--text-primary);
+  }
+
+  input, textarea, select, button {
+    font-family: inherit;
   }
 }
 
-/* Custom scrollbars */
+/* ─── Scrollbars ─── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
-  border-radius: 3px;
+  background: #DDDEDE;
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #C8C9C4;
+}
+
+/* ─── Range Input (Video Scrubber) ─── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 9999px;
+  background: #E7E7E3;
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #1F2937;
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #1F2937;
+  border: 2px solid #FFFFFF;
+  cursor: pointer;
+}
+
+/* ─── Semantic Tag Utilities ─── */
+.tag-lavender {
+  background-color: #F3F1FF;
+  color: #4C3CB8;
+  border: 1px solid #E1DCFF;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+}
+.tag-mint {
+  background-color: #F0FAF4;
+  color: #1B663E;
+  border: 1px solid #C8EBD8;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+}
+.tag-peach {
+  background-color: #FFF7F0;
+  color: #9A4B10;
+  border: 1px solid #FFDCC5;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+}
+.tag-rose {
+  background-color: #FDF2F4;
+  color: #9C1F2E;
+  border: 1px solid #F5C8CF;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+}
+.tag-blue {
+  background-color: #EEF4FF;
+  color: #1E4D8C;
+  border: 1px solid #C7DBFF;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+}
+
+/* ─── Animations ─── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease forwards;
+}
+.animate-slide-up {
+  animation: slideUp 0.3s ease forwards;
+}
+.animate-scale-in {
+  animation: scaleIn 0.2s ease forwards;
+}
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+/* Skeleton loader shimmer */
+.skeleton {
+  background: linear-gradient(90deg, #F0F0EC 25%, #E8E8E4 50%, #F0F0EC 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* ─── Processing Pipeline Steps ─── */
+.pipeline-step-done {
+  color: #1B663E;
+}
+.pipeline-step-active {
+  color: #4C3CB8;
+}
+.pipeline-step-pending {
+  color: #9CA3AF;
 }
