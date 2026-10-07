@@ -317,18 +317,32 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     >
       {/* Video + Canvas */}
       <div className="relative aspect-video w-full bg-black flex items-center justify-center overflow-hidden">
-        <video
-          ref={videoRef}
-          src={videoUrl}
-          className="w-full h-full object-contain"
-          muted={isMuted}
-          playsInline
-          onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={handleLoadedMetadata}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onEnded={() => setIsPlaying(false)}
-        />
+        {videoUrl ? (
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            className="w-full h-full object-contain"
+            muted={isMuted}
+            playsInline
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onEnded={() => setIsPlaying(false)}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center text-center p-8 space-y-3">
+            <div className="w-16 h-16 rounded-2xl bg-[#E8F0EC] border border-[#C2D8CD] flex items-center justify-center text-[#3B7A57]">
+              <Layers className="w-8 h-8" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">No Surveillance Video Loaded</p>
+              <p className="text-xs text-[#9CA3AF] max-w-sm mt-1">
+                Upload a surveillance video using the "Upload Video" button above to initiate YOLO object tracking and behaviour intelligence.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Overlay Canvas */}
         <canvas

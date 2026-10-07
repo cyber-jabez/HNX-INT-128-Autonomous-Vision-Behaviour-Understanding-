@@ -57,11 +57,19 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
     setError(null);
 
     try {
+      // Real API upload to backend
       const uploaded = await api.uploadVideo(file, (pct) => setProgress(pct));
+      // Automatically trigger pipeline processing
+      try {
+        await api.processVideo(uploaded.id);
+      } catch (procErr) {
+        console.warn('Processing trigger notice:', procErr);
+      }
       onVideoUploaded(uploaded);
+      setIsUploading(false);
       onClose();
     } catch (err: any) {
-      console.warn('Backend API unavailable, simulating local video upload:', err.message);
+      console.warn('Backend API upload failed or unavailable, simulating local video upload:', err);
       let currentProgress = 0;
       const interval = setInterval(() => {
         currentProgress += 12;

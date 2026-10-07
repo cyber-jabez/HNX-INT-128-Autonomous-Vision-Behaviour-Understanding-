@@ -44,9 +44,12 @@ export const MiddlePanels: React.FC<MiddlePanelsProps> = ({
   };
 
   tracks.forEach((t) => {
-    if (behaviourCounts[t.behaviour] !== undefined) {
-      behaviourCounts[t.behaviour]++;
-    }
+    const raw = String(t.behaviour || '').toLowerCase();
+    if (raw.includes('walk')) behaviourCounts['Walking']++;
+    else if (raw.includes('run')) behaviourCounts['Running']++;
+    else if (raw.includes('loiter')) behaviourCounts['Loitering']++;
+    else if (raw.includes('station')) behaviourCounts['Stationary']++;
+    else behaviourCounts['Standing']++;
   });
 
   const getSeverityBadge = (sev: AlertSeverity) => {
