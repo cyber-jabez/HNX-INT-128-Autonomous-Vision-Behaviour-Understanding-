@@ -9,6 +9,8 @@ class BehaviourType(str, enum.Enum):
     STANDING = "STANDING"
     STATIONARY = "STATIONARY"
     RUNNING = "RUNNING"
+    LOITERING = "LOITERING"
+    FALL = "FALL"
 
 
 class BehaviourRules:

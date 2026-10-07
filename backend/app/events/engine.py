@@ -134,7 +134,7 @@ class EventEngine:
 
         # 2. Loitering Detection
         # Rule: Low movement / stationary duration > configured threshold
-        effective_loitering_limit = min(self.loitering_threshold, 2.5)
+        effective_loitering_limit = self.loitering_threshold
         if features.stationary_duration >= effective_loitering_limit:
             if not self.fired_loitering.get(track_id, False):
                 self.fired_loitering[track_id] = True
