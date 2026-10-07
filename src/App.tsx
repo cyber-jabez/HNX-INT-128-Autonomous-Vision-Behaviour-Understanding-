@@ -8,50 +8,69 @@ import { ZoneEditorPanel } from './components/ZoneEditorPanel';
 import { VideoUploadModal } from './components/VideoUploadModal';
 import { VideoMetadata, TrackDetection, Zone, VideoEvent } from './types';
 import { api } from './services/api';
-import { MOCK_VIDEOS, MOCK_ZONES, MOCK_EVENTS, generateMockTracksAtTime } from './services/mockData';
 
 export function App() {
-  const [videos, setVideos] = useState<VideoMetadata[]>(MOCK_VIDEOS);
-  const [selectedVideo, setSelectedVideo] = useState<VideoMetadata | null>(MOCK_VIDEOS[0]);
+  const [videos, setVideos] = useState<VideoMetadata[]>([]);
+  const [selectedVideo, setSelectedVideo] = useState<VideoMetadata | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
 
   // Playback state
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(64);
+  const [duration, setDuration] = useState(0);
 
   // Detections & Tracking
   const [tracks, setTracks] = useState<TrackDetection[]>([]);
   const [selectedTrackId, setSelectedTrackId] = useState<number | null>(null);
 
   // Zones & Drawing
-  const [zones, setZones] = useState<Zone[]>(MOCK_ZONES);
+  const [zones, setZones] = useState<Zone[]>([]);
   const [isDrawingZone, setIsDrawingZone] = useState(false);
   const [drawingZoneType, setDrawingZoneType] = useState('Restricted Zone');
 
   // Events & Alerts
-  const [events, setEvents] = useState<VideoEvent[]>(MOCK_EVENTS);
-  const [selectedEvent, setSelectedEvent] = useState<VideoEvent | null>(MOCK_EVENTS[0]);
+  const [events, setEvents] = useState<VideoEvent[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<VideoEvent | null>(null);
 
-  // Load backend videos on mount (fallback to mock)
-  useEffect(() => {
-    async function fetchInitialData() {
-      try {
-        const fetchedVideos = await api.getVideos();
-        if (fetchedVideos && fetchedVideos.length > 0) {
-          setVideos(fetchedVideos);
-          setSelectedVideo(fetchedVideos[0]);
-        }
-      } catch (err) {
-        console.info('Backend offline or initializing; using built-in mock streams');
+  // Load real backend videos on mount
+  const refreshVideos = useCallback(async () => {
+    try {
+      const fetchedVideos = await api.getVideos();
+      setVideos(fetchedVideos || []);
+      if (fetchedVideos && fetchedVideos.length > 0) {
+        setSelectedVideo((prev) => {
+          if (!prev) return fetchedVideos[0];
+          const exists = fetchedVideos.find((v) => v.id === prev.id);
+          return exists || fetchedVideos[0];
+        });
+      } else {
+        setSelectedVideo(null);
       }
+    } catch (err) {
+      console.error('Failed to load videos from backend:', err);
+      setVideos([]);
+      setSelectedVideo(null);
     }
-    fetchInitialData();
   }, []);
 
-  // When selected video changes, load its zones and events
   useEffect(() => {
-    if (!selectedVideo) return;
+    refreshVideos();
+  }, [refreshVideos]);
+
+  // When selected video changes, load its real duration, zones, and events
+  useEffect(() => {
+    if (!selectedVideo) {
+      setZones([]);
+      setEvents([]);
+      setSelectedEvent(null);
+      setTracks([]);
+      setDuration(0);
+      return;
+    }
+
     const currentVid = selectedVideo;
+    if (currentVid.duration_seconds > 0) {
+      setDuration(currentVid.duration_seconds);
+    }
 
     async function loadVideoContext() {
       try {
@@ -59,43 +78,53 @@ export function App() {
           api.getZones(currentVid.id),
           api.getVideoEvents(currentVid.id),
         ]);
-        if (fetchedZones?.length) setZones(fetchedZones);
-        if (fetchedEvents?.length) {
-          setEvents(fetchedEvents);
-          setSelectedEvent(fetchedEvents[0]);
-        }
-      } catch {
-        // Fallback to demo video data
-        if (currentVid.id === 'vid-demo-01') {
-          setZones(MOCK_ZONES);
-          setEvents(MOCK_EVENTS);
-          setSelectedEvent(MOCK_EVENTS[0]);
-        }
+        setZones(fetchedZones || []);
+        setEvents(fetchedEvents || []);
+        setSelectedEvent((prev) => {
+          if (prev && fetchedEvents?.some((e) => e.id === prev.id)) return prev;
+          return fetchedEvents && fetchedEvents.length > 0 ? fetchedEvents[0] : null;
+        });
+      } catch (err) {
+        console.error('Error fetching video zones or events:', err);
       }
     }
 
     loadVideoContext();
+
+    // Periodically sync events and check processing completion
+    const interval = setInterval(async () => {
+      try {
+        await loadVideoContext();
+        const statusResp = await api.getVideoStatus(currentVid.id);
+        if (statusResp && statusResp.status && statusResp.status.toLowerCase() === 'completed') {
+          clearInterval(interval);
+        }
+      } catch {
+        // quiet ignore
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
   }, [selectedVideo]);
 
-  // Continuously update tracking data based on currentTime
+  // Fetch real tracks from backend based on currentTime
   useEffect(() => {
-    if (!selectedVideo) return;
+    if (!selectedVideo) {
+      setTracks([]);
+      return;
+    }
 
-    // Check if real backend API provides tracks
     let isCancelled = false;
     api
       .getVideoTracks(selectedVideo.id, currentTime)
       .then((backendTracks) => {
-        if (!isCancelled && backendTracks && backendTracks.length > 0) {
-          setTracks(backendTracks);
-        } else {
-          // Generate realistic time-varying mock tracks
-          setTracks(generateMockTracksAtTime(currentTime));
+        if (!isCancelled) {
+          setTracks(backendTracks || []);
         }
       })
       .catch(() => {
         if (!isCancelled) {
-          setTracks(generateMockTracksAtTime(currentTime));
+          setTracks([]);
         }
       });
 
@@ -107,24 +136,23 @@ export function App() {
   // Handle new zone creation
   const handleZoneCreated = async (zoneData: Omit<Zone, 'id' | 'video_id'>) => {
     if (!selectedVideo) return;
-    const newZone: Zone = {
-      ...zoneData,
-      id: `zone-${Date.now()}`,
-      video_id: selectedVideo.id,
-    };
-
-    setZones((prev) => [...prev, newZone]);
     setIsDrawingZone(false);
 
     try {
-      await api.createZone(selectedVideo.id, zoneData);
+      const created = await api.createZone(selectedVideo.id, zoneData);
+      setZones((prev) => [...prev, created]);
     } catch (err) {
-      console.info('Zone saved to local state');
+      console.error('Failed to create zone on backend:', err);
     }
   };
 
-  const handleDeleteZone = (zoneId: string) => {
+  const handleDeleteZone = async (zoneId: string) => {
     setZones((prev) => prev.filter((z) => z.id !== zoneId));
+    try {
+      await api.deleteZone(zoneId);
+    } catch (err) {
+      console.error('Failed to delete zone on backend:', err);
+    }
   };
 
   const handleVideoUploaded = (newVideo: VideoMetadata) => {

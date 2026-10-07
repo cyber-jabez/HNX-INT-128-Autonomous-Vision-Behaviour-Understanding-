@@ -64,41 +64,22 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
     setError(null);
 
     try {
-      // Try real API upload
+      // Real API upload to backend
       const uploaded = await api.uploadVideo(file, (pct) => setProgress(pct));
+      // Automatically trigger pipeline processing
+      try {
+        await api.processVideo(uploaded.id);
+      } catch (procErr) {
+        console.warn('Processing trigger notice:', procErr);
+      }
       onVideoUploaded(uploaded);
+      setIsUploading(false);
       onClose();
     } catch (err: any) {
-      console.warn('Backend API unavailable, simulating local video upload:', err.message);
-      // Fallback simulation when backend server isn't running yet
-      let currentProgress = 0;
-      const interval = setInterval(() => {
-        currentProgress += 15;
-        if (currentProgress >= 100) {
-          clearInterval(interval);
-          setProgress(100);
-          setTimeout(() => {
-            const localUrl = URL.createObjectURL(file);
-            const mockUploaded: VideoMetadata = {
-              id: `vid-local-${Date.now()}`,
-              title: file.name,
-              filename: file.name,
-              size_bytes: file.size,
-              duration_seconds: 60,
-              fps: 30,
-              resolution: '1920x1080',
-              status: 'ready',
-              created_at: new Date().toISOString(),
-              stream_url: localUrl,
-            };
-            onVideoUploaded(mockUploaded);
-            setIsUploading(false);
-            onClose();
-          }, 400);
-        } else {
-          setProgress(currentProgress);
-        }
-      }, 150);
+      console.error('Backend API upload failed:', err);
+      const msg = err.response?.data?.detail || err.message || 'Video upload failed on backend server.';
+      setError(msg);
+      setIsUploading(false);
     }
   };
 

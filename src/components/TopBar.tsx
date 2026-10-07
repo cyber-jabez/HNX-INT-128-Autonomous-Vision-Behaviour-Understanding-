@@ -50,11 +50,17 @@ export const TopBar: React.FC<TopBarProps> = ({
             }}
             className="bg-transparent text-slate-200 outline-none cursor-pointer max-w-[200px] truncate"
           >
-            {videos.map((vid) => (
-              <option key={vid.id} value={vid.id} className="bg-slate-900 text-white">
-                {vid.title}
+            {videos.length === 0 ? (
+              <option value="" disabled className="bg-slate-900 text-slate-500">
+                No videos available
               </option>
-            ))}
+            ) : (
+              videos.map((vid) => (
+                <option key={vid.id} value={vid.id} className="bg-slate-900 text-white">
+                  {vid.title}
+                </option>
+              ))
+            )}
           </select>
         </div>
 

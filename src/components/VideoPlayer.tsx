@@ -355,19 +355,33 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       className="relative flex flex-col bg-[#0b0f19] border border-slate-800 rounded-2xl overflow-hidden shadow-2xl group"
     >
       {/* Video Stream + Overlay Canvas */}
-      <div className="relative aspect-video w-full bg-black flex items-center justify-center overflow-hidden">
-        <video
-          ref={videoRef}
-          src={videoUrl}
-          className="w-full h-full object-contain"
-          muted={isMuted}
-          playsInline
-          onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={handleLoadedMetadata}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onEnded={() => setIsPlaying(false)}
-        />
+      <div className="relative aspect-video w-full bg-[#070b12] flex items-center justify-center overflow-hidden">
+        {videoUrl ? (
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            className="w-full h-full object-contain"
+            muted={isMuted}
+            playsInline
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onEnded={() => setIsPlaying(false)}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center text-center p-8 space-y-3">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+              <Layers className="w-8 h-8" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">No Surveillance Video Loaded</p>
+              <p className="text-xs text-slate-400 max-w-sm mt-1">
+                Upload a real MP4/AVI/MOV surveillance video using the "Upload Video" button above to initiate YOLO object tracking and behaviour intelligence.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Overlay Canvas for Real-time Bounding Boxes and Zones */}
         <canvas
